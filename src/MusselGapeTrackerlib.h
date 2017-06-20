@@ -10,6 +10,7 @@
 
 #include <Arduino.h> // to get access to pinMode, digitalRead etc functions
 #include "SdFat.h"	// https://github.com/greiman/SdFat
+#include <SPI.h>
 #include "RTClib.h" // https://github.com/millerlp/RTClib
 #include "SSD1306Ascii.h" // https://github.com/greiman/SSD1306Ascii
 #include "SSD1306AsciiWire.h" // https://github.com/greiman/SSD1306Ascii
@@ -20,6 +21,34 @@
 #include <wiring_private.h>
 #include <avr/wdt.h>
 #include <math.h>
+
+class ShiftReg {
+	public:
+		ShiftReg();
+		~ShiftReg();
+		void begin(byte CS_SHIFT_REG, byte SHIFT_CLEAR); // set up pinMode for the sensor
+		word shiftChannelSet(byte channel); // Pull single channel high
+		
+	private: 
+	uint8_t m_CS_SHIFT_REG;
+	uint8_t m_SHIFT_CLEAR;
+};
+
+class Mux {
+	public:
+		Mux();
+		~Mux();
+		void begin(uint8_t MUX_EN, uint8_t MUX_S0, uint8_t MUX_S1, uint8_t MUX_S2, uint8_t MUX_S3); 
+		void muxChannelSet(byte channel);
+		
+	private:
+	uint8_t m_MUX_EN;
+	uint8_t m_MUX_S0;
+	uint8_t m_MUX_S1;
+	uint8_t m_MUX_S2;
+	uint8_t m_MUX_S3;
+	
+};
 
 
 //--------- Public functions
@@ -43,6 +72,11 @@ void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename);
 // Start the TIMER2 timer, using a 32.768kHz input from a DS3231M 
 // real time clock as the signal. 
 DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS);
+
+// Wake a Hall effect sensor by pulling the appropriate pin high on one of
+// the shift registers. Pass a value 0-15, and the corresponding shift 
+// register line will be set to 1 (high) to wake that hall effect sensor.
+word shiftChannelSet (byte channel);
 
 // Update Hall sensor values on the OLED screen. This function only updates
 // elements that have changed, and leaves the rest of the screen static. 

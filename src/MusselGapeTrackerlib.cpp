@@ -6,7 +6,7 @@
 */
 
 
-#include "MusselGapeTracker.h"
+#include "MusselGapeTrackerlib.h"
 
 void printTimeSerial(DateTime now){
 //------------------------------------------------
@@ -202,7 +202,7 @@ void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename) {
 	} // end of file-naming for loop
 	//------------------------------------------------------------
   // Write 1st header line
-  logfile.print(F("POSIXt,DateTime");
+  logfile.print(F("POSIXt,DateTime"));
   for (byte i = 0; i < 16; i++){
 	  // Cycle through channels to create headers for each column
 	logfile.print(F(",Hall"));
@@ -280,6 +280,78 @@ DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS){
 	// of SAMPLES_PER_SECOND) regardless of whether the AVR is awake or asleep.
 	return currTime;
 }
+
+
+//---------------ShiftReg------------------------
+ShiftReg::ShiftReg(){}
+ShiftReg::~ShiftReg(){}
+
+void ShiftReg::begin(uint8_t CS_SHIFT_REG, uint8_t SHIFT_CLEAR){
+	m_CS_SHIFT_REG = CS_SHIFT_REG;
+	m_SHIFT_CLEAR = SHIFT_CLEAR;
+	// Set pinMode to output
+	pinMode(m_CS_SHIFT_REG, OUTPUT);
+	pinMode(m_SHIFT_CLEAR, OUTPUT);
+  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
+  // and then set SHIFT_CLEAR high. 
+  // Initially clear the shift registers to put all hall 
+  // effect chips to sleep (they sleep when their sleep pin
+  // is pulled low). Do this by pulling SHIFT_CLEAR low
+  // while CS_SHIFT_REG is low, then send CS_SHIFT_REG high
+  // to trigger the clear. 
+  digitalWrite(m_SHIFT_CLEAR, HIGH);
+  digitalWrite(m_CS_SHIFT_REG, LOW);
+  digitalWrite(m_SHIFT_CLEAR, LOW);
+  digitalWrite(m_CS_SHIFT_REG, HIGH);
+  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
+}
+
+uint16_t ShiftReg::shiftChannelSet (uint8_t channel) {
+    // Send a signal to the appropriate shift register
+    // channel to go high (set 1) to wake that hall sensor
+    digitalWrite(m_CS_SHIFT_REG, LOW);
+    // Calculate the appropriate hex value to put a 1 in 
+    // the correct channel's location (bit 0-15)
+    // Do this by taking a hex 1 and left-shifting it the 
+    // appropriate number of bits. To turn on Hall 0, you 
+    // need a 1 in bit 0, to turn on Hall 15, you need
+    // a 1 in bit 15 position.
+    uint16_t hexChannel = 0x01 << channel;
+    // Now split into lowByte and highByte and send them both
+    // in order
+    SPI.transfer(highByte(hexChannel)); // 
+    SPI.transfer(lowByte(hexChannel)); // 
+    digitalWrite(m_CS_SHIFT_REG, HIGH); 
+    return hexChannel; 
+} // end of shiftChannelSet
+
+//-------------Mux----------------------------------
+Mux::Mux(){}
+Mux::~Mux(){}
+
+void Mux::begin(uint8_t MUX_EN, uint8_t MUX_S0, uint8_t MUX_S1, uint8_t MUX_S2, uint8_t MUX_S3) {
+	m_MUX_EN = MUX_EN;
+	m_MUX_S0 = MUX_S0;
+	m_MUX_S1 = MUX_S1;
+	m_MUX_S2 = MUX_S2;
+	m_MUX_S3 = MUX_S3;
+	// Set the pinModes
+	pinMode(m_MUX_EN, OUTPUT);
+	pinMode(m_MUX_S0, OUTPUT);
+	pinMode(m_MUX_S1, OUTPUT);
+	pinMode(m_MUX_S2, OUTPUT);
+	pinMode(m_MUX_S3, OUTPUT);
+	
+	digitalWrite(m_MUX_EN, LOW); // enable mux by setting LOW
+}
+
+void Mux::muxChannelSet (byte channel) {
+  // select correct MUX channel
+  digitalWrite (m_MUX_S0, (channel & 1) ? HIGH : LOW);  // low-order bit
+  digitalWrite (m_MUX_S1, (channel & 2) ? HIGH : LOW);
+  digitalWrite (m_MUX_S2, (channel & 4) ? HIGH : LOW);  
+  digitalWrite (m_MUX_S3, (channel & 8) ? HIGH : LOW);  // high-order bit
+}  // end of muxChannelSet
 
  
 //-----------printHallToOLED--------------------------------------------------
