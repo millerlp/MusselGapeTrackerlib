@@ -44,7 +44,7 @@ void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename);
 // real time clock as the signal. 
 DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS);
 
-// Update Hall sensor values on the 2 OLED screens. This function only updates
+// Update Hall sensor values on the OLED screen. This function only updates
 // elements that have changed, and leaves the rest of the screen static. 
 // void printHallToOLEDs (SSD1306AsciiWire& oled1, SSD1306AsciiWire& oled2, double *hallAverages, double *prevAverages);
 
