@@ -127,7 +127,7 @@ void goToSleep() {
 // on the 4-digit year, month, day, hour, minutes and a 2-digit counter. 
 // The character array 'filename' was defined as a global array 
 // at the top of the sketch in the form "YYYYMMDD_HHMM_00.csv"
-void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename) {
+void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename, bool serialValid, char *serialNumber) {
 	
 	char buf[5];
 	// integer to ascii function itoa(), supplied with numeric year value,
@@ -173,7 +173,15 @@ void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename) {
 	}
 	// Insert another underscore after time
 	filename[13] = '_';
-
+	// If there is a valid serialnumber, insert it into 
+	// the file name in positions 17-20. 
+	if (serialValid) {
+		byte serCount = 0;
+		for (byte i = 17; i < 21; i++){
+			filename[i] = serialNumber[serCount];
+			serCount++;
+		}
+	}
 	// Next change the counter on the end of the filename
 	// (digits 14+15) to increment count for files generated on
 	// the same day. This shouldn't come into play
@@ -225,7 +233,8 @@ void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename) {
 // Starts the 32.768kHz clock signal being fed into XTAL1 from the
 // real time clock to drive the
 // quarter-second interrupts used during data-collecting periods. 
-// Supply a current DateTime time value. 
+// Supply a current DateTime time value, the real time clock object, and
+// a sample per second value (SPS) of 1, 2 , or 4
 // This function returns a DateTime value that can be used to show the 
 // current time when returning from this function. 
 DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS){
@@ -258,7 +267,7 @@ DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS){
 	} else if (SPS == 2) {
 		TCCR2B = _BV(CS22) ; // prescaler clk/64 -- TCNT2 will overflow once every 0.5 seconds
 	} else if (SPS == 1){
-		TCCR2B = _BV(CS22) | _BV(CS20); // prescaler clk/128 -- TCNT2 will overflow once every 1 seconds
+		TCCR2B = _BV(CS22) | _BV(CS20); // prescaler clk/128 -- TCNT2 will overflow once every 1 second
 	}
 
 
@@ -279,6 +288,20 @@ DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS){
 	// which should be every 0.25, 0.5 or 1 seconds (depending on value 
 	// of SAMPLES_PER_SECOND) regardless of whether the AVR is awake or asleep.
 	return currTime;
+}
+
+
+unsigned int readHall(byte ANALOG_IN){
+	unsigned int rawAnalog = 0;
+	analogRead(ANALOG_IN); // throw away 1st reading
+	for (byte i = 0; i<4; i++){
+	  rawAnalog = rawAnalog + analogRead(ANALOG_IN);
+	  delay(2);
+	}
+	// Do a 2-bit right shift to divide rawAnalog
+	// by 4 to get the average of the 4 readings
+	rawAnalog = rawAnalog >> 2;   
+	return rawAnalog;
 }
 
 
@@ -324,6 +347,18 @@ uint16_t ShiftReg::shiftChannelSet (uint8_t channel) {
     digitalWrite(m_CS_SHIFT_REG, HIGH); 
     return hexChannel; 
 } // end of shiftChannelSet
+
+
+void ShiftReg::clear(void){
+	  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
+  // and then set SHIFT_CLEAR high. 
+  digitalWrite(m_SHIFT_CLEAR, HIGH);
+  digitalWrite(m_CS_SHIFT_REG, LOW);
+  digitalWrite(m_SHIFT_CLEAR, LOW);
+  digitalWrite(m_CS_SHIFT_REG, HIGH);
+  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
+} // end of clear() function
+
 
 //-------------Mux----------------------------------
 Mux::Mux(){}

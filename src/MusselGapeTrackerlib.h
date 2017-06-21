@@ -27,7 +27,8 @@ class ShiftReg {
 		ShiftReg();
 		~ShiftReg();
 		void begin(byte CS_SHIFT_REG, byte SHIFT_CLEAR); // set up pinMode for the sensor
-		word shiftChannelSet(byte channel); // Pull single channel high
+		word shiftChannelSet(byte channel); // Pull single channel high		
+		void clear(void); // clear all channels (puts sensors to sleep)
 		
 	private: 
 	uint8_t m_CS_SHIFT_REG;
@@ -67,16 +68,17 @@ void goToSleep();
 
 // Initialize a new output csv file. Note that this writes a header row
 // to the file, so you may want to tweak the column labels in this function.
-void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename);
+void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename, bool serialValid, char *serialNumber);
 
 // Start the TIMER2 timer, using a 32.768kHz input from a DS3231M 
 // real time clock as the signal. 
 DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS);
 
-// Wake a Hall effect sensor by pulling the appropriate pin high on one of
-// the shift registers. Pass a value 0-15, and the corresponding shift 
-// register line will be set to 1 (high) to wake that hall effect sensor.
-word shiftChannelSet (byte channel);
+// Take a set of 4 readings on the analog input, average the values, and 
+// return the average value as an unsigned int (should be 0 to 1023)
+unsigned int readHall(byte ANALOG_IN);
+
+
 
 // Update Hall sensor values on the OLED screen. This function only updates
 // elements that have changed, and leaves the rest of the screen static. 
