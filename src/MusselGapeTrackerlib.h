@@ -86,8 +86,21 @@ void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, 
 // Show 4 channels of Hall measurements on the screen.
 void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiWire& oled1,byte I2C_ADDRESS1);
 
-// Set up watchdog timer
-void watchdogSetup(void);
+
+// Put the AVR into a low power sleep mode with 8 second delays
+// Used primarily if you're done taking data
+void lowPowerSleep();
+
+// Check the contents of the MCU Status Register and put the 
+// chip into permanent low power sleep if it has suffered a 
+// brownout (~2.7V). 
+void checkMCUSR(byte mcusr, byte ERRLED);
+
+// A simple function to print out a byte as 1's and 0's to Serial
+void printBits(byte myByte);
+
+// Function to print out a byte at 1's and 0's to an OLED display
+void printBitsOLED(byte myByte, SSD1306AsciiWire& oled1);
 
 
 #endif

@@ -8,6 +8,92 @@
 
 #include "MusselGapeTrackerlib.h"
 
+//---------------ShiftReg------------------------
+ShiftReg::ShiftReg(){}
+ShiftReg::~ShiftReg(){}
+
+void ShiftReg::begin(uint8_t CS_SHIFT_REG, uint8_t SHIFT_CLEAR){
+	m_CS_SHIFT_REG = CS_SHIFT_REG;
+	m_SHIFT_CLEAR = SHIFT_CLEAR;
+	// Set pinMode to output
+	pinMode(m_CS_SHIFT_REG, OUTPUT);
+	pinMode(m_SHIFT_CLEAR, OUTPUT);
+  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
+  // and then set SHIFT_CLEAR high. 
+  // Initially clear the shift registers to put all hall 
+  // effect chips to sleep (they sleep when their sleep pin
+  // is pulled low). Do this by pulling SHIFT_CLEAR low
+  // while CS_SHIFT_REG is low, then send CS_SHIFT_REG high
+  // to trigger the clear. 
+  digitalWrite(m_SHIFT_CLEAR, HIGH);
+  digitalWrite(m_CS_SHIFT_REG, LOW);
+  digitalWrite(m_SHIFT_CLEAR, LOW);
+  digitalWrite(m_CS_SHIFT_REG, HIGH);
+  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
+}
+
+uint16_t ShiftReg::shiftChannelSet (uint8_t channel) {
+    // Send a signal to the appropriate shift register
+    // channel to go high (set 1) to wake that hall sensor
+    digitalWrite(m_CS_SHIFT_REG, LOW);
+    // Calculate the appropriate hex value to put a 1 in 
+    // the correct channel's location (bit 0-15)
+    // Do this by taking a hex 1 and left-shifting it the 
+    // appropriate number of bits. To turn on Hall 0, you 
+    // need a 1 in bit 0, to turn on Hall 15, you need
+    // a 1 in bit 15 position.
+    uint16_t hexChannel = 0x01 << channel;
+    // Now split into lowByte and highByte and send them both
+    // in order
+    SPI.transfer(highByte(hexChannel)); // 
+    SPI.transfer(lowByte(hexChannel)); // 
+    digitalWrite(m_CS_SHIFT_REG, HIGH); 
+    return hexChannel; 
+} // end of shiftChannelSet
+
+
+void ShiftReg::clear(void){
+	  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
+  // and then set SHIFT_CLEAR high. 
+  digitalWrite(m_SHIFT_CLEAR, HIGH);
+  digitalWrite(m_CS_SHIFT_REG, LOW);
+  digitalWrite(m_SHIFT_CLEAR, LOW);
+  digitalWrite(m_CS_SHIFT_REG, HIGH);
+  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
+} // end of clear() function
+
+
+//-------------Mux----------------------------------
+Mux::Mux(){}
+Mux::~Mux(){}
+
+void Mux::begin(uint8_t MUX_EN, uint8_t MUX_S0, uint8_t MUX_S1, uint8_t MUX_S2, uint8_t MUX_S3) {
+	m_MUX_EN = MUX_EN;
+	m_MUX_S0 = MUX_S0;
+	m_MUX_S1 = MUX_S1;
+	m_MUX_S2 = MUX_S2;
+	m_MUX_S3 = MUX_S3;
+	// Set the pinModes
+	pinMode(m_MUX_EN, OUTPUT);
+	pinMode(m_MUX_S0, OUTPUT);
+	pinMode(m_MUX_S1, OUTPUT);
+	pinMode(m_MUX_S2, OUTPUT);
+	pinMode(m_MUX_S3, OUTPUT);
+	
+	digitalWrite(m_MUX_EN, LOW); // enable mux by setting LOW
+}
+
+void Mux::muxChannelSet (byte channel) {
+  // select correct MUX channel
+  digitalWrite (m_MUX_S0, (channel & 1) ? HIGH : LOW);  // low-order bit
+  digitalWrite (m_MUX_S1, (channel & 2) ? HIGH : LOW);
+  digitalWrite (m_MUX_S2, (channel & 4) ? HIGH : LOW);  
+  digitalWrite (m_MUX_S3, (channel & 8) ? HIGH : LOW);  // high-order bit
+}  // end of muxChannelSet
+
+
+
+
 void printTimeSerial(DateTime now){
 //------------------------------------------------
 // printTime function takes a DateTime object from
@@ -122,25 +208,6 @@ void goToSleep() {
   ADCSRA = adcsra; // re-apply the previous settings to the ADC status register
 
 }
-
-// Set up watchdog timer. Currently set for 2 second timeout
-void watchdogSetup(void){
-	cli(); // temporarily disable interrupts
-	wdt_reset(); // reset watchdog timer
-	
-	// Enter watchdog configuration mode
-	WDTCSR |= (1<<WDCE) | (1<<WDE);
-	// All changes to watchdog must happen within
-	// 4 clock cycles after the above line is run
-	/* Timer configuration:
-	WDIE = 1 : Interrupt enable
-	WDE = 1 : reset enabled
-	WDP2 = 1, WDP1 = 1, WDP0 = 1 gives 2000ms timeout
-	*/
-	WDTCSR = (1<<WDIE) | (1<<WDE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);
-	sei(); // reenable interrupts
-}
-
 
 
 //-------------- initFileName --------------------------------------------------
@@ -376,91 +443,129 @@ void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiW
 }
 
 
+//-----------------------------------------------------------------------------
+// lowPowerSleep function
+// This sleep version uses the watchdog timer to sleep for 8 seconds at a time
 
+void lowPowerSleep(void){
 
+	/* It seems to be necessary to zero out the Asynchronous clock status 
+	 * register (ASSR) before enabling the watchdog timer interrupts in this
+	 * process. 
+	 */
+	ASSR = 0;  
+	TIMSK2 = 0; // stop timer 2 interrupts
+	// Cannot re-enter sleep mode within one TOSC cycle. 
+	// This provides the needed delay.
+	OCR2A = 0; // write to OCR2A, we're not using it, but no matter
+	while (ASSR & _BV(OCR2AUB)) {} // wait for OCR2A to be updated
 
-//---------------ShiftReg------------------------
-ShiftReg::ShiftReg(){}
-ShiftReg::~ShiftReg(){}
+	ADCSRA = 0;   // disable ADC
+	set_sleep_mode (SLEEP_MODE_PWR_DOWN);  // specify sleep mode
+	sleep_enable();
+	// Do not interrupt before we go to sleep, or the
+	// ISR will detach interrupts and we won't wake.
+	noInterrupts ();
+	//--------------------------------------------------------------------------
+	// Set up Watchdog timer for long term sleep
 
-void ShiftReg::begin(uint8_t CS_SHIFT_REG, uint8_t SHIFT_CLEAR){
-	m_CS_SHIFT_REG = CS_SHIFT_REG;
-	m_SHIFT_CLEAR = SHIFT_CLEAR;
-	// Set pinMode to output
-	pinMode(m_CS_SHIFT_REG, OUTPUT);
-	pinMode(m_SHIFT_CLEAR, OUTPUT);
-  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
-  // and then set SHIFT_CLEAR high. 
-  // Initially clear the shift registers to put all hall 
-  // effect chips to sleep (they sleep when their sleep pin
-  // is pulled low). Do this by pulling SHIFT_CLEAR low
-  // while CS_SHIFT_REG is low, then send CS_SHIFT_REG high
-  // to trigger the clear. 
-  digitalWrite(m_SHIFT_CLEAR, HIGH);
-  digitalWrite(m_CS_SHIFT_REG, LOW);
-  digitalWrite(m_SHIFT_CLEAR, LOW);
-  digitalWrite(m_CS_SHIFT_REG, HIGH);
-  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
+	// Clear the reset flag first
+	MCUSR &= ~(1 << WDRF);
+
+	// In order to change WDE or the prescaler, we need to
+	// set WDCE (This will allow updates for 4 clock cycles).
+	WDTCSR |= (1 << WDCE) | (1 << WDE);
+	// Enable watchdog interrupt (WDIE), and set 8 second delay
+	WDTCSR = bit(WDIE) | bit(WDP3) | bit(WDP0); 
+	wdt_reset();
+
+	// Turn off brown-out enable in software
+	// BODS must be set to one and BODSE must be set to zero within four clock 
+	// cycles, see section 10.11.2 of 328P datasheet
+	MCUCR = bit (BODS) | bit (BODSE);
+	// The BODS bit is automatically cleared after three clock cycles
+	MCUCR = bit (BODS);
+	// We are guaranteed that the sleep_cpu call will be done
+	// as the processor executes the next instruction after
+	// interrupts are turned on.
+	interrupts ();  // one cycle, re-enables interrupts
+	sleep_cpu ();   // one cycle, going to sleep now, wake on interrupt
+	// The AVR is now asleep. In SLEEP_MODE_PWR_DOWN it will only wake
+	// when the watchdog timer counter rolls over and creates an interrupt
+	//-------------------------------------------------------------------
+	// disable sleep as a precaution after waking
+	sleep_disable();
 }
 
-uint16_t ShiftReg::shiftChannelSet (uint8_t channel) {
-    // Send a signal to the appropriate shift register
-    // channel to go high (set 1) to wake that hall sensor
-    digitalWrite(m_CS_SHIFT_REG, LOW);
-    // Calculate the appropriate hex value to put a 1 in 
-    // the correct channel's location (bit 0-15)
-    // Do this by taking a hex 1 and left-shifting it the 
-    // appropriate number of bits. To turn on Hall 0, you 
-    // need a 1 in bit 0, to turn on Hall 15, you need
-    // a 1 in bit 15 position.
-    uint16_t hexChannel = 0x01 << channel;
-    // Now split into lowByte and highByte and send them both
-    // in order
-    SPI.transfer(highByte(hexChannel)); // 
-    SPI.transfer(lowByte(hexChannel)); // 
-    digitalWrite(m_CS_SHIFT_REG, HIGH); 
-    return hexChannel; 
-} // end of shiftChannelSet
+//-------------- checkMCUSR ------------------------------------------------
+// Function checkMCUSR(byte mcusr, byte ERRLED)
+// This function is supplied a byte value that represents the contents of the
+// MCU status register. On a restart, this register's 4 lowest bits contain
+// flags noting what might have caused the restart. If the restart was due
+// to a brown-out, we want to go into a permanent sleep mode to avoid 
+// corrupting the SD card. 
+void checkMCUSR(byte mcusr, byte ERRLED) 
+{	
+	//----------------------------------------------------------------------
+	// Check the MCU Status Register (MCUSR) to see why the
+	// program has started/restarted. See section 11.9.1 of the AVR datasheet.
+	// Check if the Brown-Out Reset Flag is 1 by &-ing MCUSR with a 1 in
+	// the BORF position. MCUSR and BORF are defined internally in the
+	// various avr libraries. 
+	if (mcusr & _BV(BORF) ) { 
+		// Check to see if the external reset flag EXTRF was set. If it 
+		// is set, this next test will fail and normal bootup will proceed.
+		if (!(mcusr & _BV(EXTRF))){	
+			// Now check if the Power-On Reset Flag is 0. A full power-on
+			// reset will usually have both BORF and PORF true, but a 
+			// brown-out when already powered-up will not have PORF true. 
+			if (!(mcusr & _BV(PORF))){ 
+				// Uh-oh, PORF was not true, so we only have a BORF flag.
+				// This likely signals that the power supply is getting low
+				// enough that it is hitting the brown-out level (~2.7v).
+				// In this case, we should put the unit into a permanent
+				// sleep to avoid corrupting the SD card.
 
-
-void ShiftReg::clear(void){
-	  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
-  // and then set SHIFT_CLEAR high. 
-  digitalWrite(m_SHIFT_CLEAR, HIGH);
-  digitalWrite(m_CS_SHIFT_REG, LOW);
-  digitalWrite(m_SHIFT_CLEAR, LOW);
-  digitalWrite(m_CS_SHIFT_REG, HIGH);
-  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
-} // end of clear() function
-
-
-//-------------Mux----------------------------------
-Mux::Mux(){}
-Mux::~Mux(){}
-
-void Mux::begin(uint8_t MUX_EN, uint8_t MUX_S0, uint8_t MUX_S1, uint8_t MUX_S2, uint8_t MUX_S3) {
-	m_MUX_EN = MUX_EN;
-	m_MUX_S0 = MUX_S0;
-	m_MUX_S1 = MUX_S1;
-	m_MUX_S2 = MUX_S2;
-	m_MUX_S3 = MUX_S3;
-	// Set the pinModes
-	pinMode(m_MUX_EN, OUTPUT);
-	pinMode(m_MUX_S0, OUTPUT);
-	pinMode(m_MUX_S1, OUTPUT);
-	pinMode(m_MUX_S2, OUTPUT);
-	pinMode(m_MUX_S3, OUTPUT);
-	
-	digitalWrite(m_MUX_EN, LOW); // enable mux by setting LOW
+				// Go into a permanent sleep loop. This cannot be exited 
+				// without a reset of some sort. Continued brown-outs should
+				// simply end up back here. The REDLED should blink briefly
+				// every 8 seconds to indicate that the program has ended 
+				// up in this brown-out-induced loop.
+				while(1){
+					digitalWrite(ERRLED, HIGH);
+					delay(3);
+					digitalWrite(ERRLED, LOW);
+					lowPowerSleep();  // go back to sleep
+				}
+			}
+		}
+	}
 }
 
-void Mux::muxChannelSet (byte channel) {
-  // select correct MUX channel
-  digitalWrite (m_MUX_S0, (channel & 1) ? HIGH : LOW);  // low-order bit
-  digitalWrite (m_MUX_S1, (channel & 2) ? HIGH : LOW);
-  digitalWrite (m_MUX_S2, (channel & 4) ? HIGH : LOW);  
-  digitalWrite (m_MUX_S3, (channel & 8) ? HIGH : LOW);  // high-order bit
-}  // end of muxChannelSet
+//-------------- printBits -----------------------------------------
+// A simple function to print out a byte as 1's and 0's to Serial
+void printBits(byte myByte){
+	for(byte mask = 0x80; mask; mask >>= 1){
+		if(mask  & myByte){
+		   Serial.print('1');
+		} else {
+		   Serial.print('0');
+		}
+	}
+}
+
+//-----------printBitsOLED-----------------
+// Function to print out a byte at 1's and 0's to an OLED display
+void printBitsOLED(byte myByte, SSD1306AsciiWire& oled1){
+	for(byte mask = 0x80; mask; mask >>= 1){
+		if(mask  & myByte){
+		   oled1.print('1');
+		} else {
+		   oled1.print('0');
+		}
+	}
+}
+
 
  
 //-----------printHallToOLED--------------------------------------------------
