@@ -99,7 +99,7 @@ void goToSleep() {
   // ISR will detach interrupts and we won't wake.
   noInterrupts ();
   
-  wdt_disable(); // turn off the watchdog timer
+  // wdt_disable(); // turn off the watchdog timer
   
   //ATOMIC_FORCEON ensures interrupts are enabled so we can wake up again
   ATOMIC_BLOCK(ATOMIC_FORCEON) { 
@@ -114,13 +114,34 @@ void goToSleep() {
   // We are guaranteed that the sleep_cpu call will be done
   // as the processor executes the next instruction after
   // interrupts are turned on.
-  interrupts ();  // one cycle, re-enables interrupts
+  interrupts();  // one cycle, re-enables interrupts
   sleep_cpu(); //go to sleep
   //wake up here
   sleep_disable(); // upon wakeup (due to interrupt), AVR resumes here
+  // watchdogSetup(); // re-enable watchdog timer
   ADCSRA = adcsra; // re-apply the previous settings to the ADC status register
 
 }
+
+// Set up watchdog timer. Currently set for 2 second timeout
+void watchdogSetup(void){
+	cli(); // temporarily disable interrupts
+	wdt_reset(); // reset watchdog timer
+	
+	// Enter watchdog configuration mode
+	WDTCSR |= (1<<WDCE) | (1<<WDE);
+	// All changes to watchdog must happen within
+	// 4 clock cycles after the above line is run
+	/* Timer configuration:
+	WDIE = 1 : Interrupt enable
+	WDE = 1 : reset enabled
+	WDP2 = 1, WDP1 = 1, WDP0 = 1 gives 2000ms timeout
+	*/
+	WDTCSR = (1<<WDIE) | (1<<WDE) | (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);
+	sei(); // reenable interrupts
+}
+
+
 
 //-------------- initFileName --------------------------------------------------
 // initFileName - a function to create a filename for the SD card based
@@ -296,13 +317,66 @@ unsigned int readHall(byte ANALOG_IN){
 	analogRead(ANALOG_IN); // throw away 1st reading
 	for (byte i = 0; i<4; i++){
 	  rawAnalog = rawAnalog + analogRead(ANALOG_IN);
-	  delay(2);
+	  delay(1);
 	}
 	// Do a 2-bit right shift to divide rawAnalog
 	// by 4 to get the average of the 4 readings
 	rawAnalog = rawAnalog >> 2;   
 	return rawAnalog;
 }
+
+void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, Mux& mux){
+          for (byte ch = 0; ch < 16; ch++){
+              // Cycle through each channel
+              //-------------------------------------------
+              // Call function to set shift register bit to wake
+              // appropriate sensor
+              shiftReg.shiftChannelSet(ch); 
+              //----------------------------------------------
+              mux.muxChannelSet(ch); // Call function to set address bits             
+              //----------------------------------------------
+              // Take 4 analog readings from the same channel, average + store them
+              hallAverages[ch] = readHall(ANALOG_IN);         
+          }
+	
+}
+
+
+
+void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiWire& oled1, byte I2C_ADDRESS1){
+
+			  byte chIndex;
+			  switch (ScreenNum){
+				case 0:
+					chIndex = 0; // screen 0 starts with channel 0
+				break;
+				case 1:
+					chIndex = 4; // screen 1 starts with channel 4
+				break;
+				case 2:
+					chIndex = 8; // screen 2 starts with channel 8
+				break;
+				case 3:
+					chIndex = 12; // screen 3 starts with channel 12
+				break;
+			  }
+			  byte chIndex2 = chIndex + 4; 
+			    oled1.begin(&Adafruit128x64, I2C_ADDRESS1);
+				oled1.set400kHz();  
+				oled1.setFont(Adafruit5x7);
+			  oled1.home();
+              oled1.clear();
+              oled1.set2X();
+              for (byte r = chIndex; r < chIndex2; r++){
+                oled1.print(F("Ch"));
+                oled1.print(r);
+                oled1.print(F(": "));
+                oled1.println(hallAverages[r]);
+			  }
+}
+
+
+
 
 
 //---------------ShiftReg------------------------

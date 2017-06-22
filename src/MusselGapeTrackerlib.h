@@ -78,11 +78,16 @@ DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS);
 // return the average value as an unsigned int (should be 0 to 1023)
 unsigned int readHall(byte ANALOG_IN);
 
+// Read 16 Hall effect channels at once, updating values in the 16-element
+// array hallAverages. Also supply the shift register object and multiplexer
+// object
+void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, Mux& mux);
 
+// Show 4 channels of Hall measurements on the screen.
+void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiWire& oled1,byte I2C_ADDRESS1);
 
-// Update Hall sensor values on the OLED screen. This function only updates
-// elements that have changed, and leaves the rest of the screen static. 
-// void printHallToOLEDs (SSD1306AsciiWire& oled1, SSD1306AsciiWire& oled2, double *hallAverages, double *prevAverages);
+// Set up watchdog timer
+void watchdogSetup(void);
 
 
 #endif
