@@ -429,6 +429,7 @@ void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, unsigned int 
 			  }
 			  byte chIndex2 = chIndex + 4; 
 			  if (updateAll){
+				  // Update all of the Ch labels and Hall sensor values
 				  oled1.home();
 				  oled1.clear();
 				  oled1.set2X();
@@ -440,8 +441,7 @@ void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, unsigned int 
 					oled1.println(hallAverages[r]);
 				  }				  
 			  } else {
-				  // Don't update the Chx: text, just clear the Hall values
-				  oled1.clear(72,128, 0,7);
+				  // Don't update the Chx: text, only changed Hall values
 				  oled1.home();
 				  oled1.set2X();
 				  for (byte r = chIndex; r < chIndex2; r++){
