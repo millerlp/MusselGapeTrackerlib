@@ -410,7 +410,7 @@ void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, 
 
 
 
-void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiWire& oled1, byte I2C_ADDRESS1){
+void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiWire& oled1, byte I2C_ADDRESS1, bool updateAll){
 
 			  byte chIndex;
 			  switch (ScreenNum){
@@ -428,18 +428,29 @@ void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiW
 				break;
 			  }
 			  byte chIndex2 = chIndex + 4; 
-			    oled1.begin(&Adafruit128x64, I2C_ADDRESS1);
-				oled1.set400kHz();  
-				oled1.setFont(Adafruit5x7);
-			  oled1.home();
-              oled1.clear();
-              oled1.set2X();
-              for (byte r = chIndex; r < chIndex2; r++){
-                oled1.print(F("Ch"));
-                oled1.print(r);
-                oled1.print(F(": "));
-                oled1.println(hallAverages[r]);
+			  if (updateAll){
+				  oled1.home();
+				  oled1.clear();
+				  oled1.set2X();
+				  for (byte r = chIndex; r < chIndex2; r++){
+					oled1.print(F("Ch"));
+					oled1.print(r);
+					oled1.print(F(": "));
+					oled1.setCol(72);
+					oled1.println(hallAverages[r]);
+				  }				  
+			  } else {
+				  // Don't update the Chx: text, just clear the Hall values
+				  oled1.clear(72,128, 0,7);
+				  oled1.home();
+				  oled1.set2X();
+				  for (byte r = chIndex; r < chIndex2; r++){
+					oled1.setCol(72);  
+					oled1.println(hallAverages[r]);
+				  }
 			  }
+			
+
 }
 
 
