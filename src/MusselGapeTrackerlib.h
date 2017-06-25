@@ -84,7 +84,7 @@ unsigned int readHall(byte ANALOG_IN);
 void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, Mux& mux);
 
 // Show 4 channels of Hall measurements on the screen.
-void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiWire& oled1,byte I2C_ADDRESS1, bool updateAll);
+void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, unsigned int *prevAverages, SSD1306AsciiWire& oled1,byte I2C_ADDRESS1, bool updateAll);
 
 
 // Put the AVR into a low power sleep mode with 8 second delays

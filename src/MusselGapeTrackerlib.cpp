@@ -410,7 +410,7 @@ void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, 
 
 
 
-void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiWire& oled1, byte I2C_ADDRESS1, bool updateAll){
+void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, unsigned int *prevAverages, SSD1306AsciiWire& oled1, byte I2C_ADDRESS1, bool updateAll){
 
 			  byte chIndex;
 			  switch (ScreenNum){
@@ -445,8 +445,14 @@ void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, SSD1306AsciiW
 				  oled1.home();
 				  oled1.set2X();
 				  for (byte r = chIndex; r < chIndex2; r++){
-					oled1.setCol(72);  
-					oled1.println(hallAverages[r]);
+					if (hallAverages[r] == prevAverages[r]){
+						// Don't update if the value hasn't changed
+						oled1.println();
+					}  else {
+						// Update when value has changed
+						oled1.clear(72,128,oled1.row(), (oled1.row()+1)); 
+						oled1.println(hallAverages[r]);
+					}
 				  }
 			  }
 			
