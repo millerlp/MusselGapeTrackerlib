@@ -405,6 +405,7 @@ void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, 
               // Take 4 analog readings from the same channel, average + store them
               hallAverages[ch] = readHall(ANALOG_IN);         
           }
+		  shiftReg.clear();
 	
 }
 
