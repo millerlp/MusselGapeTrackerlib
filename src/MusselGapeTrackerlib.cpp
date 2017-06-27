@@ -13,7 +13,7 @@ ShiftReg::ShiftReg(){}
 ShiftReg::~ShiftReg(){}
 
 void ShiftReg::begin(uint8_t CS_SHIFT_REG, uint8_t SHIFT_CLEAR){
-	m_CS_SHIFT_REG = CS_SHIFT_REG;
+	m_CS_SHIFT_REG = CS_SHIFT_REG; // aka LATCH pin
 	m_SHIFT_CLEAR = SHIFT_CLEAR;
 	// Set pinMode to output
 	pinMode(m_CS_SHIFT_REG, OUTPUT);
@@ -35,7 +35,7 @@ void ShiftReg::begin(uint8_t CS_SHIFT_REG, uint8_t SHIFT_CLEAR){
 uint16_t ShiftReg::shiftChannelSet (uint8_t channel) {
     // Send a signal to the appropriate shift register
     // channel to go high (set 1) to wake that hall sensor
-    digitalWrite(m_CS_SHIFT_REG, LOW);
+    digitalWrite(m_CS_SHIFT_REG, LOW); // Set low to begin entering register values
     // Calculate the appropriate hex value to put a 1 in 
     // the correct channel's location (bit 0-15)
     // Do this by taking a hex 1 and left-shifting it the 
@@ -47,19 +47,32 @@ uint16_t ShiftReg::shiftChannelSet (uint8_t channel) {
     // in order
     SPI.transfer(highByte(hexChannel)); // 
     SPI.transfer(lowByte(hexChannel)); // 
-    digitalWrite(m_CS_SHIFT_REG, HIGH); 
+    digitalWrite(m_CS_SHIFT_REG, HIGH); // Set high to LATCH register values
     return hexChannel; 
 } // end of shiftChannelSet
 
 
 void ShiftReg::clear(void){
-	  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
+  // To use SHIFT_CLEAR, set it low, then pull CS_SHIFT_REG high,
   // and then set SHIFT_CLEAR high. 
-  digitalWrite(m_SHIFT_CLEAR, HIGH);
-  digitalWrite(m_CS_SHIFT_REG, LOW);
-  digitalWrite(m_SHIFT_CLEAR, LOW);
-  digitalWrite(m_CS_SHIFT_REG, HIGH);
-  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
+//  digitalWrite(m_SHIFT_CLEAR, HIGH);
+//  delayMicroseconds(10);
+//  digitalWrite(m_CS_SHIFT_REG, LOW);
+//  digitalWrite(m_SHIFT_CLEAR, LOW);
+//  delayMicroseconds(10);
+//  digitalWrite(m_CS_SHIFT_REG, HIGH);
+//  delayMicroseconds(10);
+//  digitalWrite(m_SHIFT_CLEAR, HIGH); // reset high
+
+	// Set shift register LATCH pin low to begin clocking in bits
+    digitalWrite(m_CS_SHIFT_REG, LOW);
+    uint16_t hexChannel = 0x00 ; // send all 0's to clear all channels
+    // Now split into lowByte and highByte and send them both
+    // in order
+    SPI.transfer(highByte(hexChannel)); // 
+    SPI.transfer(lowByte(hexChannel)); // 
+    digitalWrite(m_CS_SHIFT_REG, HIGH); // Pull high to set LATCH
+  
 } // end of clear() function
 
 
@@ -392,8 +405,10 @@ unsigned int readHall(byte ANALOG_IN){
 	return rawAnalog;
 }
 
-void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, Mux& mux){
-          for (byte ch = 0; ch < 16; ch++){
+void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, Mux& mux, uint8_t MUX_EN){
+          digitalWrite(MUX_EN, LOW); // enable multiplexer
+		  delayMicroseconds(2);
+		  for (byte ch = 0; ch < 16; ch++){
               // Cycle through each channel
               //-------------------------------------------
               // Call function to set shift register bit to wake
@@ -406,6 +421,7 @@ void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, 
               hallAverages[ch] = readHall(ANALOG_IN);         
           }
 		  shiftReg.clear();
+		  digitalWrite(MUX_EN, HIGH); // disable multiplexer by pulling EN pin high
 	
 }
 

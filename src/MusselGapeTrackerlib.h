@@ -81,7 +81,7 @@ unsigned int readHall(byte ANALOG_IN);
 // Read 16 Hall effect channels at once, updating values in the 16-element
 // array hallAverages. Also supply the shift register object and multiplexer
 // object
-void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, Mux& mux);
+void read16Hall(byte ANALOG_IN, unsigned int *hallAverages, ShiftReg& shiftReg, Mux& mux, uint8_t MUX_EN);
 
 // Show 4 channels of Hall measurements on the screen.
 void OLEDscreenUpdate (byte ScreenNum, unsigned int *hallAverages, unsigned int *prevAverages, SSD1306AsciiWire& oled1,byte I2C_ADDRESS1, bool updateAll);
