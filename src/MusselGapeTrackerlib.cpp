@@ -1,6 +1,6 @@
 /* MusselGapeTracker.cpp
 	A set of functions used with the MusselGapeTracker project
-	on RevA hardware (ATmega328p)
+	on RevC hardware (ATmega328p)
 	Luke Miller June 2017
 
 */
