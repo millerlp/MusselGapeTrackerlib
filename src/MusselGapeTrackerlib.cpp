@@ -601,6 +601,35 @@ void printBitsOLED(byte myByte, SSD1306AsciiWire& oled1){
 }
 
 
+
+//------------readBatteryVoltage-------------------
+// readBatteryVoltage function. This will read the AD convertor
+// and calculate the approximate battery voltage (before the
+// voltage regulator). Returns a floating point value for
+// voltage.
+float readBatteryVoltage(byte BATT_MONITOR_EN, byte BATT_MONITOR, float dividerRatio, float refVoltage){
+    // Turn on the battery voltage monitor circuit
+    digitalWrite(BATT_MONITOR_EN, HIGH);
+    delay(1);
+    // Read the analog input pin
+    unsigned int rawAnalog = 0;
+    analogRead(BATT_MONITOR); // This initial value is ignored
+    delay(3); // Give the ADC time to stablize
+    // Take 4 readings
+    for (byte i = 0; i<4; i++){
+        rawAnalog = rawAnalog + analogRead(BATT_MONITOR);
+        delay(2);
+    }
+    // Do a 2-bit right shift to divide rawAnalog
+    // by 4 to get the average of the 4 readings
+    rawAnalog = rawAnalog >> 2;
+    // Shut off the battery voltage sense circuit
+    digitalWrite(BATT_MONITOR_EN, LOW);
+    // Convert the rawAnalog count value (0-1024) into a voltage
+    // Relies on global variables dividerRatio and refVoltage
+    float reading = rawAnalog * dividerRatio * refVoltage / 1024;
+    reading; // return voltage result
+}
  
 //-----------printHallToOLED--------------------------------------------------
 // Update temperature values on the OLED screen. This function only updates

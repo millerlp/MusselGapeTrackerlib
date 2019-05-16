@@ -102,5 +102,7 @@ void printBits(byte myByte);
 // Function to print out a byte at 1's and 0's to an OLED display
 void printBitsOLED(byte myByte, SSD1306AsciiWire& oled1);
 
+// Function to read supply battery voltage
+float readBatteryVoltage(byte BATT_MONITOR_EN, byte BATT_MONITOR, float dividerRatio, float refVoltage);
 
 #endif
