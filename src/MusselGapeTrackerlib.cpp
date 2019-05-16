@@ -317,6 +317,7 @@ void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename, bo
 	logfile.print(F(",Hall"));
 	logfile.print(i);
   }
+  logfile.print(F(",Battery.V"));
   logfile.println();
 	// Update the file's creation date, modify date, and access date.
 	logfile.timestamp(T_CREATE, time1.year(), time1.month(), time1.day(), 
@@ -628,7 +629,7 @@ float readBatteryVoltage(byte BATT_MONITOR_EN, byte BATT_MONITOR, float dividerR
     // Convert the rawAnalog count value (0-1024) into a voltage
     // Relies on global variables dividerRatio and refVoltage
     float reading = rawAnalog * dividerRatio * refVoltage / 1024;
-    reading; // return voltage result
+    return reading; // return voltage result
 }
  
 //-----------printHallToOLED--------------------------------------------------
