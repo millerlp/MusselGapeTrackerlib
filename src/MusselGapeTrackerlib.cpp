@@ -361,9 +361,9 @@ DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS){
 	// no prescaler -- TCNT2 will overflow once every 0.007813 seconds (128Hz)
 	//  TCCR2B = _BV(CS20) ; 
 	// prescaler clk/8 -- TCNT2 will overflow once every 0.0625 seconds (16Hz)
-	//  TCCR2B = _BV(CS21) ; 
-
-	if (SPS == 4){
+    if (SPS == 16){
+	  TCCR2B = _BV(CS21) ;
+    } else if (SPS == 4){
 		// prescaler clk/32 -- TCNT2 will overflow once every 0.25 seconds
 		TCCR2B = _BV(CS21) | _BV(CS20); 
 	} else if (SPS == 2) {
@@ -387,8 +387,8 @@ DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS){
 	TIFR2 = _BV(OCF2B) | _BV(OCF2A) | _BV(TOV2); // clear the interrupt flags
 	TIMSK2 = _BV(TOIE2); // enable the TIMER2 interrupt on overflow
 	// TIMER2 will now create an interrupt every time it rolls over,
-	// which should be every 0.25, 0.5 or 1 seconds (depending on value 
-	// of SAMPLES_PER_SECOND) regardless of whether the AVR is awake or asleep.
+	// which should be every 0.0625, 0.25, 0.5 or 1 seconds (depending on value
+	// of SPS "SAMPLES_PER_SECOND") regardless of whether the AVR is awake or asleep.
 	return currTime;
 }
 
