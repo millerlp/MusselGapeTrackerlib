@@ -342,7 +342,7 @@ void initFileName(SdFat& sd, SdFile& logfile, DateTime time1, char *filename, bo
 DateTime startTIMER2(DateTime currTime, RTC_DS3231& rtc, byte SPS){
 	TIMSK2 = 0; // stop timer 2 interrupts
 
-	rtc.enable32kHz(true);
+	rtc.enable32K();  // updated to newer RTClib version of function
 	ASSR = _BV(EXCLK); // Set EXCLK external clock bit in ASSR register
 	// The EXCLK bit should only be set if you're trying to feed the
 	// 32.768 clock signal from the Chronodot into XTAL1. 
